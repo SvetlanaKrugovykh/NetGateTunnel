@@ -1,0 +1,27 @@
+{
+  "name": "netgate-tunnel",
+  "version": "1.0.0",
+  "description": "NetGate Tunnel - Reverse TCP tunnel solution for exposing local services through NAT",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "server": "cd server && npm start",
+    "client": "cd client && npm start"
+  },
+  "keywords": [
+    "tunnel",
+    "reverse-proxy",
+    "tcp",
+    "nat",
+    "ngrok"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

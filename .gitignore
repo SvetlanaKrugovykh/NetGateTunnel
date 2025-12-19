@@ -1,0 +1,22 @@
+# Logs
+*.log
+
+# Environment variables
+.env
+
+# Node modules
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Runtime
+*.pid
+pids/

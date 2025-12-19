@@ -1,0 +1,29 @@
+{
+  "name": "netgate-tunnel-client",
+  "version": "1.0.0",
+  "description": "NetGate Tunnel Client - Connect local services to remote server through NAT",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "keywords": [
+    "tunnel",
+    "reverse-proxy",
+    "tcp",
+    "nat",
+    "ngrok"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "pino": "^8.21.0",
+    "pino-pretty": "^11.2.2",
+    "uuid": "^9.0.1",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
