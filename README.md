@@ -17,7 +17,7 @@ A lightweight, production-ready reverse TCP tunnel solution similar to ngrok. Ex
 ```
 ┌─────────────────────┐           ┌──────────────────────┐
 │  Dev Computer       │           │  FreeBSD Server      │
-│  (Gray IP/NAT)      │           │  (91.220.106.77)     │
+│  (Gray IP/NAT)      │           │  (EXT.EXT.EXT.EXT)   │
 │                     │           │                      │
 │  ┌──────────────┐   │  WebSocket│  ┌────────────────┐  │
 │  │   Client     │◄──┼───────────┼─►│ Control Server │  │
@@ -32,14 +32,14 @@ A lightweight, production-ready reverse TCP tunnel solution similar to ngrok. Ex
                                              ▲
                                              │
                                    External Users
-                                   91.220.106.77:3000
+                                   EXT.EXT.EXT.EXT:3000
 ```
 
 ### How It Works
 
 1. **Client** connects to **Server** via WebSocket (control channel)
 2. **Client** registers which ports to tunnel (e.g., 3000, 8080)
-3. **Server** opens these ports on public IP (91.220.106.77)
+3. **Server** opens these ports on public IP (EXT.EXT.EXT.EXT)
 4. External user connects to **Server**:3000
 5. **Server** notifies **Client** about new connection
 6. **Client** creates data channel back to **Server**
@@ -92,7 +92,7 @@ nano .env
 
 Edit `.env`:
 ```env
-SERVER_HOST=91.220.106.77
+SERVER_HOST=EXT.EXT.EXT.EXT
 SERVER_PORT=8000
 AUTH_TOKEN=your-super-secret-token
 TUNNELS=3000:3000:webapp,8080:8080:api
@@ -132,19 +132,19 @@ Output:
 ═══════════════════════════════════════════════════
    NetGate Tunnel Client - RUNNING
 ═══════════════════════════════════════════════════
-   Server: 91.220.106.77:8000
+   Server: EXT.EXT.EXT.EXT:8000
    Tunnels: 2
 
-   → webapp: 91.220.106.77:3000 -> localhost:3000
-   → api: 91.220.106.77:8080 -> localhost:8080
+   → webapp: EXT.EXT.EXT.EXT:3000 -> localhost:3000
+   → api: EXT.EXT.EXT.EXT:8080 -> localhost:8080
 ═══════════════════════════════════════════════════
 ```
 
 ### Access Your Services
 
 Now you can access your local services from anywhere:
-- `http://91.220.106.77:3000` → `localhost:3000` (webapp)
-- `http://91.220.106.77:8080` → `localhost:8080` (api)
+- `http://EXT.EXT.EXT.EXT:3000` → `localhost:3000` (webapp)
+- `http://EXT.EXT.EXT.EXT:8080` → `localhost:8080` (api)
 
 ## Configuration
 
@@ -165,7 +165,7 @@ Now you can access your local services from anywhere:
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `SERVER_HOST` | Server hostname or IP | `localhost` | `91.220.106.77` |
+| `SERVER_HOST` | Server hostname or IP | `localhost` | `EXT.EXT.EXT.EXT` |
 | `SERVER_PORT` | Server control port | `8000` | `8000` |
 | `AUTH_TOKEN` | Authentication token | `""` | `your-secret-token` |
 | `TUNNELS` | Tunnel configuration | `[]` | `3000:3000:webapp,8080:8080` |
