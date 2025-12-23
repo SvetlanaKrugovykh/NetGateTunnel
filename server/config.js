@@ -4,31 +4,40 @@
 
 require('dotenv').config()
 
+// Helper: pick the first defined, non-empty env value from the provided list
+function pickEnv(names, fallback) {
+  for (const name of names) {
+    const value = process.env[name]
+    if (value !== undefined && value !== '') return value
+  }
+  return fallback
+}
+
 function loadConfig() {
   return {
-    // Control server settings
-    controlPort: parseInt(process.env.CONTROL_PORT || '8000', 10),
-    host: process.env.HOST || '0.0.0.0',
+    // Control server settings (support legacy alt variable names)
+    controlPort: parseInt(pickEnv(['CONTROL_PORT', 'SERVER_PORT', 'PORT'], '8000'), 10),
+    host: pickEnv(['HOST', 'SERVER_HOST'], '0.0.0.0'),
     
     // Authentication
-    authTokens: process.env.AUTH_TOKENS 
-      ? process.env.AUTH_TOKENS.split(',').map(t => t.trim())
+    authTokens: pickEnv(['AUTH_TOKENS'], '') 
+      ? pickEnv(['AUTH_TOKENS'], '').split(',').map(t => t.trim())
       : [],
     
     // Allowed ports configuration
     // Format: "3000,3001,5000-6000" or empty for all ports
-    allowedPorts: parseAllowedPorts(process.env.ALLOWED_PORTS || ''),
+    allowedPorts: parseAllowedPorts(pickEnv(['ALLOWED_PORTS', 'SERVER_ALLOWED_PORTS'], '')),
     
     // Connection settings
-    connectionTimeout: parseInt(process.env.CONNECTION_TIMEOUT || '10000', 10),
-    pingInterval: parseInt(process.env.PING_INTERVAL || '30000', 10),
-    pingTimeout: parseInt(process.env.PING_TIMEOUT || '60000', 10),
+    connectionTimeout: parseInt(pickEnv(['CONNECTION_TIMEOUT'], '10000'), 10),
+    pingInterval: parseInt(pickEnv(['PING_INTERVAL'], '30000'), 10),
+    pingTimeout: parseInt(pickEnv(['PING_TIMEOUT'], '60000'), 10),
     
     // Data connection settings
-    clientDataHost: process.env.CLIENT_DATA_HOST || 'localhost',
+    clientDataHost: pickEnv(['CLIENT_DATA_HOST'], 'localhost'),
     
     // Logging
-    logLevel: process.env.LOG_LEVEL || 'info',
+    logLevel: pickEnv(['LOG_LEVEL'], 'info'),
   }
 }
 
