@@ -69,21 +69,28 @@ class NetGateServer {
 
     // Register tunnels
     this.controlServer.on('registerTunnels', async (clientId, tunnels) => {
-      const results = await this.tunnelManager.registerTunnels(clientId, tunnels)
-      
-      // Send results back to client
-      for (const result of results) {
-        if (result.success) {
-          this.controlServer.sendToClient(clientId, {
-            type: 'tunnel_registered',
-            ...result,
-          })
-        } else {
-          this.controlServer.sendToClient(clientId, {
-            type: 'tunnel_failed',
-            ...result,
-          })
+      try {
+        this.logger.info({ clientId }, 'Starting tunnel registration handler')
+        const results = await this.tunnelManager.registerTunnels(clientId, tunnels)
+        this.logger.info({ clientId, resultCount: results.length }, 'Tunnel registration completed')
+        
+        // Send results back to client
+        for (const result of results) {
+          if (result.success) {
+            this.controlServer.sendToClient(clientId, {
+              type: 'tunnel_registered',
+              ...result,
+            })
+          } else {
+            this.controlServer.sendToClient(clientId, {
+              type: 'tunnel_failed',
+              ...result,
+            })
+          }
         }
+        this.logger.info({ clientId }, 'Sent tunnel registration results to client')
+      } catch (error) {
+        this.logger.error({ clientId, error }, 'Unexpected error in registerTunnels handler')
       }
     })
 
@@ -183,12 +190,17 @@ if (require.main === module) {
 
   // Uncaught exception handler
   process.on('uncaughtException', (error) => {
-    console.error('Uncaught exception:', error)
+    console.error('!!! Uncaught exception:', error.message)
+    console.error(error.stack)
     server.stop().then(() => process.exit(1))
   })
 
   process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled rejection at:', promise, 'reason:', reason)
+    console.error('!!! Unhandled rejection at:', promise)
+    console.error('!!! Reason:', reason)
+    if (reason && reason.stack) {
+      console.error(reason.stack)
+    }
     server.stop().then(() => process.exit(1))
   })
 
