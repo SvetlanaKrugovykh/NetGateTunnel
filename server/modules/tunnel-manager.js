@@ -14,7 +14,7 @@ class TunnelManager extends EventEmitter {
     this.config = config
     this.logger = logger
     this.controlServer = controlServer
-    this.tunnels = new Map(); // remotePort -> { clientId, localPort, name, server, connections }
+    this.tunnels = new Map(); // remotePort -> { clientId, localPort, name, server, connections, incomingSockets }
     this.pendingConnections = new Map(); // connectionId -> { socket, timeout }
   }
 
@@ -125,6 +125,7 @@ class TunnelManager extends EventEmitter {
       protocol,
       server,
       connections: new Map(),
+      incomingSockets: new Set(), // Track all incoming sockets
       stats: {
         totalConnections: 0,
         activeConnections: 0,
@@ -159,6 +160,15 @@ class TunnelManager extends EventEmitter {
       socket.end()
       return
     }
+
+    // Track incoming socket to ensure proper cleanup
+    tunnel.incomingSockets.add(socket)
+    socket.on('close', () => {
+      tunnel.incomingSockets.delete(socket)
+    })
+    socket.on('error', () => {
+      tunnel.incomingSockets.delete(socket)
+    })
 
     tunnel.stats.totalConnections++
     tunnel.stats.activeConnections++
