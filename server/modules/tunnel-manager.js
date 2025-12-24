@@ -95,7 +95,7 @@ class TunnelManager extends EventEmitter {
       }
     })
 
-    // Start listening
+    // Start listening with SO_REUSEADDR enabled by default in Node.js
     await new Promise((resolve, reject) => {
       server.listen(remotePort, this.config.host || '0.0.0.0', () => {
         this.logger.info(
@@ -103,13 +103,6 @@ class TunnelManager extends EventEmitter {
           'Tunnel registered'
         )
         resolve()
-      })
-
-      // Use SO_REUSEADDR socket option
-      server.once('listening', () => {
-        if (server._handle) {
-          server._handle.setSimultaneousAccepts(true)
-        }
       })
 
       server.on('error', (error) => {
