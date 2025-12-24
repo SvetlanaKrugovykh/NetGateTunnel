@@ -26,7 +26,7 @@ class TunnelManager extends EventEmitter {
 
     for (const tunnel of tunnelConfigs) {
       try {
-        const result = await this.registerTunnel(clientId, tunnel)
+        const result = await this.registerTunnelWithRetry(clientId, tunnel)
         results.push(result)
       } catch (error) {
         this.logger.error({ clientId, tunnel, error }, 'Failed to register tunnel')
@@ -39,6 +39,29 @@ class TunnelManager extends EventEmitter {
     }
 
     return results
+  }
+
+  /**
+   * Register tunnel with automatic retry for EADDRINUSE
+   */
+  async registerTunnelWithRetry(clientId, config, attempt = 0) {
+    const maxRetries = 3
+    const retryDelay = 500
+
+    try {
+      return await this.registerTunnel(clientId, config)
+    } catch (error) {
+      // Retry on EADDRINUSE (port in TIME_WAIT)
+      if (error.code === 'EADDRINUSE' && attempt < maxRetries) {
+        this.logger.warn(
+          { remotePort: config.remotePort, attempt: attempt + 1, maxRetries },
+          'Port in use, retrying...'
+        )
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        return this.registerTunnelWithRetry(clientId, config, attempt + 1)
+      }
+      throw error
+    }
   }
 
   /**
@@ -62,6 +85,16 @@ class TunnelManager extends EventEmitter {
       this.handleIncomingConnection(clientId, remotePort, socket)
     })
 
+    // Enable SO_REUSEADDR to allow quick port reuse
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        this.logger.warn(
+          { remotePort, error: error.message },
+          'Port in TIME_WAIT, retrying in 1 second...'
+        )
+      }
+    })
+
     // Start listening
     await new Promise((resolve, reject) => {
       server.listen(remotePort, this.config.host || '0.0.0.0', () => {
@@ -70,6 +103,13 @@ class TunnelManager extends EventEmitter {
           'Tunnel registered'
         )
         resolve()
+      })
+
+      // Use SO_REUSEADDR socket option
+      server.once('listening', () => {
+        if (server._handle) {
+          server._handle.setSimultaneousAccepts(true)
+        }
       })
 
       server.on('error', (error) => {
@@ -286,11 +326,29 @@ class TunnelManager extends EventEmitter {
 
     // Close all active connections
     for (const conn of tunnel.connections.values()) {
-      conn.clientSocket.destroy()
-      conn.dataSocket.destroy()
+      try {
+        conn.clientSocket.destroy()
+        conn.dataSocket.destroy()
+      } catch (error) {
+        this.logger.warn({ error }, 'Error destroying connection')
+      }
+    }
+    tunnel.connections.clear()
+
+    // Close all pending connections
+    for (const [connectionId, pending] of this.pendingConnections.entries()) {
+      if (pending.remotePort === remotePort) {
+        try {
+          clearTimeout(pending.timeout)
+          pending.socket.destroy()
+        } catch (error) {
+          this.logger.warn({ error }, 'Error destroying pending socket')
+        }
+        this.pendingConnections.delete(connectionId)
+      }
     }
 
-    // Close server
+    // Close server listener
     await new Promise((resolve) => {
       tunnel.server.close(() => {
         this.logger.info({ remotePort }, 'Tunnel unregistered')
@@ -299,6 +357,10 @@ class TunnelManager extends EventEmitter {
     })
 
     this.tunnels.delete(remotePort)
+
+    // Small delay to allow OS to fully release the port
+    // (avoid TIME_WAIT issues on quick re-registration)
+    await new Promise(resolve => setTimeout(resolve, 100))
   }
 
   /**

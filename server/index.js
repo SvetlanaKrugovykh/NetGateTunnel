@@ -60,7 +60,11 @@ class NetGateServer {
     // Client disconnected
     this.controlServer.on('clientDisconnected', async (clientId) => {
       this.logger.info({ clientId }, 'Client disconnected, unregistering tunnels')
-      await this.tunnelManager.unregisterClientTunnels(clientId)
+      try {
+        await this.tunnelManager.unregisterClientTunnels(clientId)
+      } catch (error) {
+        this.logger.error({ clientId, error }, 'Error unregistering client tunnels')
+      }
     })
 
     // Register tunnels
