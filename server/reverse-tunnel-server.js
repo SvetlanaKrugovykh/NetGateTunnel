@@ -1,43 +1,34 @@
 
 
+
 // Reverse Tunnel Server
-// Accepts connections from client and proxies them to local service
+// For each new connection from a remote client, create a new connection to the tunnel client and pipe data between them
 
 const net = require('net')
 
 const TUNNEL_PORT = parseInt(process.env.TUNNEL_PORT || '5555', 10)
-const SERVICE_HOST = '127.0.0.1'
-const SERVICE_PORT = parseInt(process.env.SERVICE_PORT || '8778', 10)
+const TUNNEL_CLIENT_HOST = process.env.TUNNEL_CLIENT_HOST || '127.0.0.1'
+const TUNNEL_CLIENT_PORT = parseInt(process.env.TUNNEL_CLIENT_PORT || '5556', 10)
 
-const server = net.createServer((clientSocket) => {
-	console.log(`[TunnelServer] client connected from ${clientSocket.remoteAddress}:${clientSocket.remotePort}`)
-
-	// Connect to local service
-	const serviceSocket = net.connect(SERVICE_PORT, SERVICE_HOST, () => {
-		console.log(`[TunnelServer] connected to service ${SERVICE_HOST}:${SERVICE_PORT}`)
-		// Pipe data between client and service
-		clientSocket.pipe(serviceSocket)
-		serviceSocket.pipe(clientSocket)
+const server = net.createServer((remoteSocket) => {
+	// For each new connection from the outside, connect to the tunnel client
+	const tunnelClientSocket = net.connect(TUNNEL_CLIENT_PORT, TUNNEL_CLIENT_HOST, () => {
+		remoteSocket.pipe(tunnelClientSocket)
+		tunnelClientSocket.pipe(remoteSocket)
 	})
-
-	serviceSocket.on('error', (err) => {
-		console.log('[TunnelServer] service connection error', err)
-		clientSocket.destroy()
+	tunnelClientSocket.on('error', (err) => {
+		console.log('[TunnelServer] tunnel client connection error', err)
+		remoteSocket.destroy()
 	})
-
-	clientSocket.on('error', (err) => {
-		console.log('[TunnelServer] client socket error', err)
-		serviceSocket.destroy()
+	remoteSocket.on('error', (err) => {
+		console.log('[TunnelServer] remote socket error', err)
+		tunnelClientSocket.destroy()
 	})
-
-	clientSocket.on('close', () => {
-		serviceSocket.destroy()
-		console.log('[TunnelServer] client disconnected')
+	remoteSocket.on('close', () => {
+		tunnelClientSocket.destroy()
 	})
-
-	serviceSocket.on('close', () => {
-		clientSocket.destroy()
-		console.log('[TunnelServer] service disconnected')
+	tunnelClientSocket.on('close', () => {
+		remoteSocket.destroy()
 	})
 })
 
