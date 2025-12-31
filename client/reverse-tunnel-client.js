@@ -1,13 +1,14 @@
 
+
 // Reverse Tunnel Client for tcp_reverse_tunnel_server.py
-// Connects to the Python tunnel server and forwards local TCP connections
+// For each connection from the Python tunnel server, create a new connection to the local service and pipe data between them
 
 const net = require('net')
 
 const SERVER_HOST = process.env.TUNNEL_SERVER_HOST || '127.0.0.1' // IP of tcp_reverse_tunnel_server.py
 const SERVER_PORT = parseInt(process.env.TUNNEL_SERVER_PORT || '9001', 10) // Port for tunnel client (LISTEN_PORT+1)
 const LOCAL_HOST = '127.0.0.1'
-const LOCAL_PORT = parseInt((process.env.TUNNELS || '8778:8778').split(':')[1], 10)
+const LOCAL_PORT = parseInt((process.env.TUNNELS || '8777:8777').split(':')[1], 10)
 const ENABLED = (process.env.TUNNEL_ENABLED || 'true').toLowerCase() === 'true'
 
 if (!ENABLED) {
@@ -15,35 +16,40 @@ if (!ENABLED) {
   process.exit(0)
 }
 
-function connectTunnel() {
-  const tunnelSocket = net.connect(SERVER_PORT, SERVER_HOST, () => {
-    console.log(`[TunnelClient] Connected to tunnel server at ${SERVER_HOST}:${SERVER_PORT}`)
-  })
+function startTunnelClient() {
+  function connectToServer() {
+    const tunnelSocket = net.connect(SERVER_PORT, SERVER_HOST, () => {
+      console.log(`[TunnelClient] Connected to tunnel server at ${SERVER_HOST}:${SERVER_PORT}`)
+    })
 
-  tunnelSocket.on('error', (err) => {
-    console.log('[TunnelClient] tunnel server error', err)
-    setTimeout(connectTunnel, 3000)
-  })
+    tunnelSocket.on('error', (err) => {
+      console.log('[TunnelClient] tunnel server error', err)
+      setTimeout(connectToServer, 3000)
+    })
 
-  tunnelSocket.on('close', () => {
-    console.log('[TunnelClient] tunnel server connection closed, reconnecting in 3s')
-    setTimeout(connectTunnel, 3000)
-  })
+    tunnelSocket.on('close', () => {
+      console.log('[TunnelClient] tunnel server connection closed, reconnecting in 3s')
+      setTimeout(connectToServer, 3000)
+    })
 
-  // Listen for local connections to forward
-  const localServer = net.createServer((localSocket) => {
-    // Для каждого локального подключения связываем с tunnelSocket
-    function forward(src, dst) {
-      src.on('data', (data) => dst.write(data))
-      src.on('end', () => dst.end())
-      src.on('error', () => dst.destroy())
-    }
-    forward(localSocket, tunnelSocket)
-    forward(tunnelSocket, localSocket)
-  })
-  localServer.listen(LOCAL_PORT, LOCAL_HOST, () => {
-    console.log(`[TunnelClient] Listening for local connections on ${LOCAL_HOST}:${LOCAL_PORT}`)
-  })
+    // For each incoming connection from the server, create a new connection to the local service
+    tunnelSocket.on('data', function handler(data) {
+      // Create a connection to the local service
+      const localSocket = net.connect(LOCAL_PORT, LOCAL_HOST, () => {
+        localSocket.write(data)
+      })
+      tunnelSocket.pipe(localSocket)
+      localSocket.pipe(tunnelSocket)
+      localSocket.on('error', (err) => {
+        console.log('[TunnelClient] local service error', err)
+        localSocket.destroy()
+      })
+      localSocket.on('close', () => {
+        tunnelSocket.unpipe(localSocket)
+      })
+    })
+  }
+  connectToServer()
 }
 
-connectTunnel()
+startTunnelClient()
