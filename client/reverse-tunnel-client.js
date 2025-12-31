@@ -5,8 +5,8 @@
 
 const net = require('net')
 
-const SERVER_HOST = process.env.TUNNEL_SERVER_HOST || '127.0.0.1' // IP of tcp_reverse_tunnel_server.py
-const SERVER_PORT = parseInt(process.env.TUNNEL_SERVER_PORT || '9001', 10) // Port for tunnel client (LISTEN_PORT+1)
+const SERVER_HOST = process.env.WHITE_SERVER_HOST || '127.0.0.1' // IP of tcp_reverse_tunnel_server.py
+const SERVER_PORT = parseInt(process.env.WHITE_SERVER_PORT || '9001', 10) // Port for tunnel client (LISTEN_PORT+1)
 const LOCAL_HOST = '127.0.0.1'
 const LOCAL_PORT = parseInt((process.env.TUNNELS || '8777:8777').split(':')[1], 10)
 const ENABLED = (process.env.TUNNEL_ENABLED || 'true').toLowerCase() === 'true'
