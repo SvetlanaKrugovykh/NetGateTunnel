@@ -228,47 +228,49 @@ class TunnelManager extends EventEmitter {
       port: dataPort,
     })
 
+    let isConnected = false;
+
+    const cleanup = () => {
+      if (!isConnected) return;
+      isConnected = false;
+      clientSocket.destroy();
+      dataSocket.destroy();
+      tunnel.connections.delete(connectionId);
+      tunnel.stats.activeConnections--;
+    };
+
     dataSocket.on('connect', () => {
-      this.logger.info({ connectionId, dataPort }, 'Connected to client data port')
+      isConnected = true;
+      this.logger.info({ connectionId, dataPort }, 'Connected to client data port');
 
-      // Pipe data between sockets
-      clientSocket.pipe(dataSocket)
-      dataSocket.pipe(clientSocket)
+      // Надёжный пайпинг с обработкой ошибок
+      clientSocket.pipe(dataSocket).on('error', cleanup);
+      dataSocket.pipe(clientSocket).on('error', cleanup);
 
-      // Track data transfer
       clientSocket.on('data', (chunk) => {
-        tunnel.stats.bytesIn += chunk.length
-      })
-
+        tunnel.stats.bytesIn += chunk.length;
+      });
       dataSocket.on('data', (chunk) => {
-        tunnel.stats.bytesOut += chunk.length
-      })
+        tunnel.stats.bytesOut += chunk.length;
+      });
+
+      clientSocket.on('error', (err) => {
+        this.logger.error({ connectionId, err }, 'Client socket error');
+        cleanup();
+      });
+      dataSocket.on('error', (err) => {
+        this.logger.error({ connectionId, err }, 'Data socket error');
+        cleanup();
+      });
+      clientSocket.on('close', cleanup);
+      dataSocket.on('close', cleanup);
 
       tunnel.connections.set(connectionId, {
         clientSocket,
         dataSocket,
         startTime: Date.now(),
-      })
-    })
-
-    dataSocket.on('error', (error) => {
-      this.logger.error({ connectionId, error }, 'Data socket error')
-      clientSocket.end()
-      dataSocket.destroy()
-      tunnel.stats.activeConnections--
-    })
-
-    dataSocket.on('close', () => {
-      clientSocket.end()
-      tunnel.connections.delete(connectionId)
-      tunnel.stats.activeConnections--
-    })
-
-    clientSocket.on('close', () => {
-      dataSocket.end()
-      tunnel.connections.delete(connectionId)
-      tunnel.stats.activeConnections--
-    })
+      });
+    });
   }
 
   /**

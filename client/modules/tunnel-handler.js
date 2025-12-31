@@ -103,43 +103,40 @@ class TunnelHandler extends EventEmitter {
       port: localPort,
     })
 
-    localSocket.on('connect', () => {
-      this.logger.info({ connectionId, localPort }, 'Connected to local service')
+    let isConnected = false;
+    const cleanup = () => {
+      if (!isConnected) return;
+      isConnected = false;
+      serverSocket.destroy();
+      localSocket.destroy();
+      this.activeConnections.delete(connectionId);
+    };
 
-      // Pipe data bidirectionally
-      serverSocket.pipe(localSocket)
-      localSocket.pipe(serverSocket)
+    localSocket.on('connect', () => {
+      isConnected = true;
+      this.logger.info({ connectionId, localPort }, 'Connected to local service');
+
+      // Надёжный пайпинг с обработкой ошибок
+      serverSocket.pipe(localSocket).on('error', cleanup);
+      localSocket.pipe(serverSocket).on('error', cleanup);
 
       this.activeConnections.set(connectionId, {
         serverSocket,
         localSocket,
         startTime: Date.now(),
-      })
-    })
+      });
+    });
 
     localSocket.on('error', (error) => {
-      this.logger.error({ connectionId, localPort, error }, 'Local socket error')
-      serverSocket.end()
-      this.cleanupConnection(connectionId)
-    })
-
-    localSocket.on('close', () => {
-      this.logger.info({ connectionId }, 'Local connection closed')
-      serverSocket.end()
-      this.cleanupConnection(connectionId)
-    })
-
+      this.logger.error({ connectionId, localPort, error }, 'Local socket error');
+      cleanup();
+    });
     serverSocket.on('error', (error) => {
-      this.logger.error({ connectionId, error }, 'Server socket error')
-      localSocket.end()
-      this.cleanupConnection(connectionId)
-    })
-
-    serverSocket.on('close', () => {
-      this.logger.info({ connectionId }, 'Server connection closed')
-      localSocket.end()
-      this.cleanupConnection(connectionId)
-    })
+      this.logger.error({ connectionId, error }, 'Server socket error');
+      cleanup();
+    });
+    localSocket.on('close', cleanup);
+    serverSocket.on('close', cleanup);
   }
 
   /**
