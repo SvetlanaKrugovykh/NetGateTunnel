@@ -4,6 +4,8 @@
  */
 
 
+
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') })
 const net = require('net')
 
 const TUNNEL_PORT = process.env.TUNNEL_PORT ? parseInt(process.env.TUNNEL_PORT, 10) : 5555
