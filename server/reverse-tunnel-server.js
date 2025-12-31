@@ -1,37 +1,22 @@
+// Reverse Tunnel Server (HTTP only)
+// Proxies HTTP requests from external clients to the tunnel client (reverse-tunnel-client.js)
 
-
-
-// Reverse Tunnel Server
-// For each new connection from a remote client, create a new connection to the tunnel client and pipe data between them
-
-const net = require('net')
+const httpProxy = require('http-proxy')
+const http = require('http')
 
 const TUNNEL_PORT = parseInt(process.env.TUNNEL_PORT || '5555', 10)
 const TUNNEL_CLIENT_HOST = process.env.TUNNEL_CLIENT_HOST || '127.0.0.1'
-const TUNNEL_CLIENT_PORT = parseInt(process.env.TUNNEL_CLIENT_PORT || '5556', 10)
+const TUNNEL_CLIENT_PORT = parseInt(process.env.WHITE_SERVER_PORT || '5555', 10)
 
-const server = net.createServer((remoteSocket) => {
-	// For each new connection from the outside, connect to the tunnel client
-	const tunnelClientSocket = net.connect(TUNNEL_CLIENT_PORT, TUNNEL_CLIENT_HOST, () => {
-		remoteSocket.pipe(tunnelClientSocket)
-		tunnelClientSocket.pipe(remoteSocket)
-	})
-	tunnelClientSocket.on('error', (err) => {
-		console.log('[TunnelServer] tunnel client connection error', err)
-		remoteSocket.destroy()
-	})
-	remoteSocket.on('error', (err) => {
-		console.log('[TunnelServer] remote socket error', err)
-		tunnelClientSocket.destroy()
-	})
-	remoteSocket.on('close', () => {
-		tunnelClientSocket.destroy()
-	})
-	tunnelClientSocket.on('close', () => {
-		remoteSocket.destroy()
+const proxy = httpProxy.createProxyServer({ target: `http://${TUNNEL_CLIENT_HOST}:${TUNNEL_CLIENT_PORT}` })
+
+const server = http.createServer((req, res) => {
+	proxy.web(req, res, {}, (err) => {
+		res.writeHead(502)
+		res.end('Proxy error')
 	})
 })
 
 server.listen(TUNNEL_PORT, () => {
-	console.log(`[TunnelServer] listening on 0.0.0.0:${TUNNEL_PORT}`)
+	console.log(`[TunnelServer] HTTP proxy listening on 0.0.0.0:${TUNNEL_PORT}, forwarding to tunnel client on ${TUNNEL_CLIENT_HOST}:${TUNNEL_CLIENT_PORT}`)
 })
