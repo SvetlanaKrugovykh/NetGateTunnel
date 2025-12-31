@@ -8,7 +8,12 @@ const TUNNEL_PORT = parseInt(process.env.TUNNEL_PORT || '5555', 10)
 const TUNNEL_CLIENT_HOST = process.env.TUNNEL_CLIENT_HOST || '127.0.0.1'
 const TUNNEL_CLIENT_PORT = parseInt(process.env.WHITE_SERVER_PORT || '5555', 10)
 
-const proxy = httpProxy.createProxyServer({ target: `http://${TUNNEL_CLIENT_HOST}:${TUNNEL_CLIENT_PORT}` })
+const proxy = httpProxy.createProxyServer({
+	target: `http://${TUNNEL_CLIENT_HOST}:${TUNNEL_CLIENT_PORT}`,
+	proxyTimeout: 600000, 
+	timeout: 600000,      // 10 minutes
+	selfHandleResponse: false
+})
 
 const server = http.createServer((req, res) => {
 	proxy.web(req, res, {}, (err) => {

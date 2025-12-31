@@ -1,6 +1,3 @@
-
-
-
 // Reverse Tunnel Client (HTTP only)
 // Proxies HTTP requests from the tunnel server to the local HTTP service
 
@@ -16,7 +13,12 @@ if (!ENABLED) {
   process.exit(0)
 }
 
-const proxy = httpProxy.createProxyServer({ target: `http://127.0.0.1:${LOCAL_PORT}` })
+const proxy = httpProxy.createProxyServer({
+  target: `http://127.0.0.1:${LOCAL_PORT}`,
+  proxyTimeout: 600000, // 10 минут
+  timeout: 600000,      // 10 минут
+  selfHandleResponse: false
+})
 
 const server = http.createServer((req, res) => {
   proxy.web(req, res, {}, (err) => {
